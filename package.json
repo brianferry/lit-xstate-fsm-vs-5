@@ -1,0 +1,21 @@
+{
+  "name": "start-fresh-lit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@xstate/fsm": "^2.1.0",
+    "lit": "^3.2.0",
+    "ts-pattern": "^5.5.0",
+    "xstate": "^5.18.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3",
+    "vite": "^5.4.8"
+  }
+}
