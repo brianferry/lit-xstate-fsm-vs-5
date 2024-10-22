@@ -1,0 +1,18 @@
+type User = {
+  id: string,
+  name: string,
+  role: 'admin' | 'editor' | 'user'
+}
+
+export async function authService(): Promise<User> {
+  console.log('called')
+  return new Promise((res, rej) => {
+    setTimeout(() => {
+      res({
+        id: '1',
+        name: 'heymp',
+        role: 'admin'
+      })
+    }, 5000);
+  });
+}

@@ -1,26 +1,28 @@
-import { LitElement, css, html, unsafeCSS } from 'lit'
+import { LitElement, PropertyValues, css, html, unsafeCSS } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
-import { createMachine, interpret } from '@xstate/fsm';
+import { asyncReplace } from 'lit/directives/async-replace.js';
+import { authService } from './services/authService';
+import { CachePropertyController } from './lib/cache-property-controller.js';
+import { MachineMixin } from './machine.js';
 // vite specific way of importing css
 import styles from './my-element.css?raw';
 
-type User = {
-  id: string,
-  name: string,
-  role: 'admin' | 'editor' | 'user'
-}
+const EVENTS = [
+  'USER_UPDATED',
+  'COUNT_UPDATED',
+  'COUNT_INCREMENT',
+  'AUTH_SERVICE_COMPLETE',
+  'AUTH_SERVICE_ERROR',
+  'RESET',
+] as const;
 
-async function authService(): Promise<User> {
-  return new Promise(res => {
-    setTimeout(() => {
-      res({
-        id: '1',
-        name: 'heymp',
-        role: 'admin'
-      })
-    }, 1000);
-  });
-}
+type EVENT = typeof EVENTS[number];
+
+window.sessionStorage.setItem('my-element:user', JSON.stringify({
+  id: '1',
+  name: 'heymp-old',
+  role: 'admin'
+}))
 
 /**
  * An example element.
@@ -28,9 +30,12 @@ async function authService(): Promise<User> {
  * @slot - This element has a slot
  * @csspart button - The button
  */
-@customElement('my-element')
-export class MyElement extends LitElement {
+export class MyElement extends MachineMixin(LitElement) {
   static styles = css`${unsafeCSS(styles)}`;
+
+  cache = new CachePropertyController(this, ['user', 'count'], () => {
+    return `my-element`;
+  });
 
   @property({ type: Number })
   count = 0;
@@ -39,86 +44,35 @@ export class MyElement extends LitElement {
   limit = 5;
 
   @state()
-  user?: User;
+  user?: Awaited<ReturnType<typeof authService>>;
 
-  public globalMachine = interpret(createMachine({
-    id: 'global',
-    initial: 'initializing',
-    states: {
-      initializing: {
-        entry: ['initialize'],
-        on: {
-          ERROR: 'error',
-          COMPLETE: [
-            {
-              cond: () => this.condLimitReached(),
-              target: 'complete',
-            },
-            {
-              target: 'default',
-            }
-          ],
-        },
-      },
-      default: {
-        on: {
-          COUNT_CHANGED: {
-            cond: () => this.condLimitReached(),
-            target: 'complete',
-          },
-          INCREMENT: {
-            actions: ['increment'],
-          },
-          RESET: {
-            cond: () => this.condCanReset(),
-            actions: ['resetCounter'],
-          },
-        }
-      },
-      complete: {
-        on: {
-          RESET: {
-            cond: () => this.condCanReset(),
-            actions: ['resetCounter'],
-            target: 'default',
-          }
-        }
-      },
-      error: {}
-    }
-  }, {
-    actions: {
-      initialize: async () => {
-        const auth = await authService();
-        if (auth) {
-          this.user = auth;
-          this.globalMachine.send('COMPLETE');
-        } else {
-          this.globalMachine.send('ERROR');
-        }
-      },
-      increment: () => {
-        this.count++;
-        this.globalMachine.send('COUNT_CHANGED');
-      },
-      resetCounter: () => {
-        this.count = 0;
-      }
-    }
-  })).start();
+  @state()
+  authServiceStatus: 'initial' | 'pending' | 'complete' | 'error' = 'initial';
 
-  constructor() {
-    super();
+  protected updated(_changedProperties: PropertyValues): void {
+    if (_changedProperties.has('user')) {
+      this.globalMachine.send({ type: 'USER_UPDATED' });
+    }
+    if (_changedProperties.has('count')) {
+      this.globalMachine.send({ type: 'COUNT_UPDATED' });
+    }
+  }
+
+  protected firstUpdated(_changedProperties: PropertyValues): void {
+    this.globalMachine.start();
     this.globalMachine.subscribe(() => {
       this.requestUpdate();
-    });
+    })
   }
 
   render() {
     const state = this.globalMachine.state;
 
     if (state.matches('initializing')) {
-      return html`loading...`;
+      return html`
+        <div>Hello ${this.user?.name}</div>
+        loading...
+      `;
     }
     if (state.matches('complete')) {
       return html`
@@ -126,14 +80,20 @@ export class MyElement extends LitElement {
         ${this._renderResetButton()}
       `;
     }
-    if (state.matches('error')) {
+    if (state.matches('hi')) {
       return html`Something went wrong :(`;
     }
     if (state.matches('default')) {
       return html`
+        <div>Hello ${this.user?.name}</div>
         <button @click=${() => this.globalMachine.send('INCREMENT')} part="button">
           count is ${this.count}
         </button>
+        ${this.condAuthIsFresh() ? html`
+          <button part="button" @click=${() => this.globalMachine.send('SAVE_COUNT')} ?disabled=${this.condIsSavingCount()}>
+            save count
+          </button>
+        `: ''}
         ${this._renderResetButton()}
       `
     }
@@ -150,14 +110,6 @@ export class MyElement extends LitElement {
     }
     return '';
   }
-
-  private condCanReset() {
-    return this.user?.role === 'admin';
-  }
-
-  private condLimitReached() {
-    return this.count >= this.limit;
-  }
 }
 
 
@@ -166,3 +118,5 @@ declare global {
     'my-element': MyElement
   }
 }
+
+customElements.define('my-element', MyElement);
