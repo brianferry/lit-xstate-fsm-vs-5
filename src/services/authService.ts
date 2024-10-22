@@ -1,4 +1,4 @@
-type User = {
+export type User = {
   id: string,
   name: string,
   role: 'admin' | 'editor' | 'user'
@@ -6,7 +6,7 @@ type User = {
 
 export async function authService(): Promise<User> {
   console.log('called')
-  return new Promise((res, rej) => {
+  return new Promise((res) => {
     setTimeout(() => {
       res({
         id: '1',

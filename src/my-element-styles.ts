@@ -1,5 +1,7 @@
-:host {
-  max-width: 1280px;
+import { css } from 'lit';
+
+export const styles = css`:host {
+max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
@@ -72,4 +74,4 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
-}
+}`;
