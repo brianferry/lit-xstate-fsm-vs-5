@@ -1,5 +1,5 @@
 import { LitElement, PropertyValues, html } from 'lit'
-import { customElement, property, state } from 'lit/decorators.js'
+import { customElement, state } from 'lit/decorators.js'
 import { authService, User } from './services/authService';
 import { CachePropertyController } from './lib/cache-property-controller.js';
 import { MachineController } from './machine-controller.js';
@@ -31,7 +31,9 @@ export class MyElementController extends LitElement {
   count: number = 0;
 
   @state()
-  user: User = { id: '', name: '', role: 'anonymous' };
+  user?: User;
+
+  args = {user: this.user, count: this.count};
 
   authService = new Task(this, {
     autoRun: false,
@@ -64,14 +66,29 @@ export class MyElementController extends LitElement {
     }
   });
 
-  #machine?: MachineController = new MachineController(this, globalMachine(this.user, this.count, this.authService, this.saveCountService));
+  #machine?: MachineController = new MachineController(this, globalMachine(this.authService, this.saveCountService, this.args));
+
+  protected updated(_changedProperties: PropertyValues): void {
+    super.updated(_changedProperties);
+    if (_changedProperties.has('user')) {
+      this.args.user = this.user;
+    }
+    if (_changedProperties.has('count')) {
+      this.args.count = this.count;
+    }
+  }
 
   render() {
+    if (!this.#machine) return;
     const state = this.#machine?.getMachineState();
+    const { user, count } = 
+      this.#machine?.machineWithGuards?.args.user 
+        ? this.#machine?.machineWithGuards?.args 
+          : { user: this.user, count: this.count };
 
     if (state.matches('initializing')) {
       return html`
-        <div>Hello ${this.user?.name}</div>
+        <div>Hello ${user?.name}</div>
         loading...
       `;
     }
@@ -86,9 +103,9 @@ export class MyElementController extends LitElement {
     }
     if (state.matches('default')) {
       return html`
-        <div>Hello ${this.user?.name}</div>
+        <div>Hello ${user?.name}</div>
         <button @click=${() => this.#machine?.sendMachineMessage('INCREMENT')} part="button">
-          count is ${this.count}
+          count is ${count ?? 0}
         </button>
         ${this.#machine?.guards.condAuthIsFresh() ? html`
           <button part="button" @click=${() => this.#machine?.sendMachineMessage('SAVE_COUNT')} ?disabled=${this.#machine?.guards.condIsSavingCount()}>

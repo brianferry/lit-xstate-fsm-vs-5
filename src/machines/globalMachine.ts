@@ -1,14 +1,14 @@
 import { createMachine, interpret } from "@xstate/fsm"
-import { User } from "../services/authService.js"
 import { Task, TaskStatus } from "@lit/task";
 
 export type StateMachineWithGuards = {
   machine: any;
   guards: any;
+  args: any;
 }
 
 // function = (cachedVariables) => createMachine
-export const globalMachine = (user?: User, count?: number, authService?: Task, saveCountService?: Task): StateMachineWithGuards => {
+export const globalMachine = (authService?: Task, saveCountService?: Task, args?: any): StateMachineWithGuards => {
 
   const guards = {
     condAuthIsFresh() {
@@ -18,13 +18,13 @@ export const globalMachine = (user?: User, count?: number, authService?: Task, s
       return saveCountService?.status === TaskStatus.PENDING;
     },
     condHasUser() {
-      return !!user;
+      return !!args.user;
     },
     condLimitReached() {
-      return count ? count >= 5 : false;
+      return args.count ? args.count >= 5 : false;
     },
     condCanReset(){
-      return count ? count > 0 : false;
+      return args.count ? args.count > 0 : false;
     }
   }
   const machine = interpret(createMachine({
@@ -86,18 +86,14 @@ export const globalMachine = (user?: User, count?: number, authService?: Task, s
         saveCountService?.run();
       },
       increment: () => {
-        console.log('increment');
-        console.log(count);
-        if(count) {
-          count++;
-          machine.send('COUNT_CHANGED');
-        }
+        typeof args.count !== 'undefined' ? args.count++ : args.count = 0;
+        machine.send('COUNT_CHANGED');
       },
       resetCounter: () => {
-        count = 0;
+        args.count = 0;
       },
     }
   }));
 
-  return { machine, guards };
+  return { machine, guards, args };
 }

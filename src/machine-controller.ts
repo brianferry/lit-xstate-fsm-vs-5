@@ -5,7 +5,7 @@ export class MachineController implements ReactiveController {
 
   private host: ReactiveControllerHost & Element;
 
-  public machineWithGuards: StateMachineWithGuards;
+  public machineWithGuards?: StateMachineWithGuards;
 
   public guards: any;
 
@@ -21,26 +21,25 @@ export class MachineController implements ReactiveController {
   }
 
   hostConnected(): void {
-    this.machineWithGuards.machine?.start();
-    this.machineWithGuards.machine?.subscribe((evt) => {
-      console.log(evt);
+    this.machineWithGuards?.machine?.start();
+    this.machineWithGuards?.machine?.subscribe((evt) => {
       this.host.requestUpdate();
     });
   }
 
   hostDisconnected(): void {
-    this.machineWithGuards.machine?.stop();
+    this.machineWithGuards?.machine?.stop();
   }
 
   getMachineState() {
-    return this.machineWithGuards.machine?.state;
+    return this.machineWithGuards?.machine?.state;
   }
 
   subscribeToMachine(cb: () => void) {
-    this.machineWithGuards.machine?.subscribe(cb);
+    this.machineWithGuards?.machine?.subscribe(cb);
   }
 
   sendMachineMessage(type: string) {
-    this.machineWithGuards.machine?.send({ type });
+    this.machineWithGuards?.machine?.send({ type });
   }
 }
