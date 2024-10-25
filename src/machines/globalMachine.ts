@@ -1,16 +1,23 @@
-import { createMachine, interpret } from "@xstate/fsm"
+import { createMachine, EventObject, interpret, StateMachine, Typestate } from "@xstate/fsm"
 import { Task, TaskStatus } from "@lit/task";
 
-export type StateMachineWithGuards = {
-  machine: any;
-  guards: any;
-  args: any;
+export type Guards = {
+  condAuthIsFresh(): boolean;
+  condIsSavingCount(): boolean;
+  condHasUser(): boolean;
+  condLimitReached(): boolean;
+  condCanReset(): boolean;
 }
 
-// function = (cachedVariables) => createMachine
-export const globalMachine = (authService?: Task, saveCountService?: Task, args?: any): StateMachineWithGuards => {
+export type StateMachineWithGuards<T> = {
+  machine: StateMachine.Service<object, EventObject, Typestate<object>>;
+  guards: Guards;
+  properties: T;
+}
 
-  const guards = {
+export const globalMachine = <T>(authService?: Task, saveCountService?: Task, properties?: T & any): StateMachineWithGuards<T> => {
+
+  const guards: Guards = {
     condAuthIsFresh() {
       return authService?.status === TaskStatus.COMPLETE;
     },
@@ -18,13 +25,13 @@ export const globalMachine = (authService?: Task, saveCountService?: Task, args?
       return saveCountService?.status === TaskStatus.PENDING;
     },
     condHasUser() {
-      return !!args.user;
+      return !!properties.user;
     },
     condLimitReached() {
-      return args.count ? args.count >= 5 : false;
+      return properties.count ? properties.count >= 5 : false;
     },
     condCanReset(){
-      return args.count ? args.count > 0 : false;
+      return properties.count ? properties.count > 0 : false;
     }
   }
   const machine = interpret(createMachine({
@@ -86,14 +93,14 @@ export const globalMachine = (authService?: Task, saveCountService?: Task, args?
         saveCountService?.run();
       },
       increment: () => {
-        typeof args.count !== 'undefined' ? args.count++ : args.count = 0;
+        typeof properties.count !== 'undefined' ? properties.count++ : properties.count = 0;
         machine.send('COUNT_CHANGED');
       },
       resetCounter: () => {
-        args.count = 0;
+        properties.count = 0;
       },
     }
   }));
 
-  return { machine, guards, args };
+  return { machine, guards, properties };
 }

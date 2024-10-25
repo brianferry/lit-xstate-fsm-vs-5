@@ -1,45 +1,55 @@
 import { ReactiveController, ReactiveControllerHost } from 'lit';
-import { StateMachineWithGuards } from './machines/globalMachine.js';
+import { Guards, StateMachineWithGuards } from './machines/globalMachine.js';
 
-export class MachineController implements ReactiveController {
+export class MachineController<T> implements ReactiveController {
 
   private host: ReactiveControllerHost & Element;
 
-  public machineWithGuards?: StateMachineWithGuards;
-
-  public guards: any;
+  #machine?: StateMachineWithGuards<T>;
 
   constructor(
     host: ReactiveControllerHost & Element,
-    machine: StateMachineWithGuards
+    machine: StateMachineWithGuards<T>
   ) {
     this.host = host;
     this.host.addController(this);
 
-    this.machineWithGuards = machine;
-    this.guards = machine.guards;
+    this.#machine = machine;
   }
 
   hostConnected(): void {
-    this.machineWithGuards?.machine?.start();
-    this.machineWithGuards?.machine?.subscribe((evt) => {
+    this.#machine?.machine?.start();
+    this.#machine?.machine?.subscribe((evt) => {
       this.host.requestUpdate();
     });
   }
 
   hostDisconnected(): void {
-    this.machineWithGuards?.machine?.stop();
+    this.#machine?.machine?.stop();
+  }
+
+  getMachine() {
+    return this.#machine?.machine;
+  }
+
+  getMachineGuards(): Guards | undefined {
+    return this.#machine?.guards;
+  }
+
+  getMachineProps(): T | undefined {
+    return this.#machine?.properties;
   }
 
   getMachineState() {
-    return this.machineWithGuards?.machine?.state;
+    return this.#machine?.machine?.state;
   }
 
   subscribeToMachine(cb: () => void) {
-    this.machineWithGuards?.machine?.subscribe(cb);
+    this.#machine?.machine?.subscribe(cb);
   }
 
   sendMachineMessage(type: string) {
-    this.machineWithGuards?.machine?.send({ type });
+    this.#machine?.machine?.send({ type });
   }
+
 }

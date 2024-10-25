@@ -14,6 +14,11 @@ window.sessionStorage.setItem('my-element:user', JSON.stringify({
 
 window.sessionStorage.setItem('my-element:count', JSON.stringify(2))
 
+type MyElementCachedProperties = {
+  user?: User;
+  count: number;
+}
+
 /**
  * An example element.
  *
@@ -33,7 +38,7 @@ export class MyElementController extends LitElement {
   @state()
   user?: User;
 
-  args = {user: this.user, count: this.count};
+  args: MyElementCachedProperties = {user: this.user, count: this.count};
 
   authService = new Task(this, {
     autoRun: false,
@@ -66,7 +71,7 @@ export class MyElementController extends LitElement {
     }
   });
 
-  #machine?: MachineController = new MachineController(this, globalMachine(this.authService, this.saveCountService, this.args));
+  #machine?: MachineController<MyElementCachedProperties> = new MachineController(this, globalMachine(this.authService, this.saveCountService, this.args));
 
   protected updated(_changedProperties: PropertyValues): void {
     super.updated(_changedProperties);
@@ -80,35 +85,32 @@ export class MyElementController extends LitElement {
 
   render() {
     if (!this.#machine) return;
-    const state = this.#machine?.getMachineState();
-    const { user, count } = 
-      this.#machine?.machineWithGuards?.args.user 
-        ? this.#machine?.machineWithGuards?.args 
-          : { user: this.user, count: this.count };
+    const [state, props, guards]= [this.#machine?.getMachineState(), this.#machine?.getMachineProps(), this.#machine?.getMachineGuards()];
+    const { user, count } = props && props.user ? props : { user: this.user, count: this.count };
 
-    if (state.matches('initializing')) {
+    if (state?.matches('initializing')) {
       return html`
         <div>Hello ${user?.name}</div>
         loading...
       `;
     }
-    if (state.matches('complete')) {
+    if (state?.matches('complete')) {
       return html`
         You're done!
         ${this._renderResetButton()}
       `;
     }
-    if (state.matches('hi')) {
+    if (state?.matches('hi')) {
       return html`Something went wrong :(`;
     }
-    if (state.matches('default')) {
+    if (state?.matches('default')) {
       return html`
         <div>Hello ${user?.name}</div>
         <button @click=${() => this.#machine?.sendMachineMessage('INCREMENT')} part="button">
           count is ${count ?? 0}
         </button>
-        ${this.#machine?.guards.condAuthIsFresh() ? html`
-          <button part="button" @click=${() => this.#machine?.sendMachineMessage('SAVE_COUNT')} ?disabled=${this.#machine?.guards.condIsSavingCount()}>
+        ${guards?.condAuthIsFresh() ? html`
+          <button part="button" @click=${() => this.#machine?.sendMachineMessage('SAVE_COUNT')} ?disabled=${guards.condIsSavingCount()}>
             save count
           </button>
         `: ''}
@@ -118,11 +120,12 @@ export class MyElementController extends LitElement {
   }
 
   _renderResetButton() {
-    const state = this.#machine?.getMachineState();
-    if (this.#machine?.guards.condCanReset()) {
+    const [state, guards]= [this.#machine?.getMachineState(), this.#machine?.getMachineGuards()];
+
+    if (guards?.condCanReset()) {
       return html`
         <button @click=${() => this.#machine?.sendMachineMessage('RESET')} part="button" ?disabled=${this.count === 0}>
-          ${state.matches('complete') ? 'reset game' : 'reset'}
+          ${state?.matches('complete') ? 'reset game' : 'reset'}
         </button>
       `;
     }
